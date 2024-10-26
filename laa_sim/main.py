@@ -78,15 +78,14 @@ if __name__ == "__main__":
     initial_loads_pu = np.array([np.zeros(len(T)) for _ in range(n)])
     ######################
     # CHOOSE SCENARIO HERE
-    laa_start_times_sec, laa_end_times_sec, laa_strengths_pu = get_simple_5_percent_increase_laa(sim_time_sec)
+    attack_scenario = get_simple_5_up_area1(sim_time_sec)
     ######################
     
     
-    for split in range(1): #range(number_of_splits):
+    for split in range(number_of_splits):
         gen_params = GeneratorsParametersList[split]
         state_in_out_vectors = StateInputOutputVectors(gen_params.n, gen_params.m, T, time_step_sec,
-                                                       initial_loads_pu, laa_start_times_sec,
-                                                       laa_end_times_sec, laa_strengths_pu)
+                                                       initial_loads_pu, attack_scenario)
         simulation = Simulation(gen_params.f0, gen_params.base_MV, gen_params.n, gen_params.m,
                                 gen_params.D, gen_params.H, gen_params.Tt, gen_params.Tg,
                                 gen_params.R, gen_params.alpha, gen_params.beta, gen_params.Tij,

@@ -8,15 +8,13 @@ from area import Area
 
 
 class StateInputOutputVectors:
-    def __init__(self, n, m, T, time_step_sec, initial_loads_pu, laa_start_times_sec, laa_end_times_sec, laa_strengths_pu):
+    def __init__(self, n, m, T, time_step_sec, initial_loads_pu, attack_scenario):
         self._n = n
         self._m = m
         self._T = T
         self._time_step_sec = time_step_sec
         self._initial_loads_pu = initial_loads_pu
-        self._laa_start_times_sec = laa_start_times_sec
-        self._laa_end_times_sec = laa_end_times_sec
-        self._laa_strengths_pu = laa_strengths_pu
+        self._attack_scenario = attack_scenario
         self._set_vectors()
 
 
@@ -56,14 +54,14 @@ class StateInputOutputVectors:
         self._y = np.zeros(shape=(len(self._T), self._n, 1)) # Area Control Error (ACE)
 
 
-    def _add_load_change(self, i):
+    def _add_load_change(self, i):            
+        altered_load = self._initial_loads_pu.copy()
         for i in range(self._n):
-            altered_load = self._initial_loads_pu[i].copy()
-            for j in range(len(self._laa_start_times_sec[i])):    
-                start_index = int(self._laa_start_times_sec[i][j] / self._time_step_sec)
-                end_index = int(self._laa_end_times_sec[i][j] / self._time_step_sec)
-                altered_load[start_index:end_index] = self._laa_strengths_pu[i][j]
-            self._w[:, i, 0] = altered_load
+            for j in range(len(self._attack_scenario[i])):
+                start_index = int(self._attack_scenario[i][j]["start"] / self._time_step_sec)
+                end_index = int(self._attack_scenario[i][j]["end"] / self._time_step_sec)
+                altered_load[i][start_index:end_index] = self._attack_scenario[i][j]["strength"]
+        self._w[:, :, 0] = altered_load.T
 
 
 class Simulation:
@@ -132,29 +130,39 @@ class Simulation:
         plt.figure()
         for i in range(self._n):
             legend.append(f"Area{i+1}")
-            if (not only_freq):
+            if (only_freq):
+                plt.subplot(2, 1, 1)
+            else:
                 plt.subplot(4, 1, 1)
-            plt.title(f"Response for Areas")
+            plt.title("Response for Areas")
             plt.plot(self._T, freq_per_unit_to_Hz(self._x[i][:, 0], self._f0), linestyle=types[i])
             plt.xlim(self._T[0], self._T[-1])
-            plt.ylabel(f"Freq [Hz]")
+            plt.ylabel("Freq [Hz]")
+            
+            if (only_freq):
+                plt.subplot(2, 1, 2)
+                plt.plot(self._T[1:], np.diff(freq_per_unit_to_Hz(self._x[i][:, 0], self._f0))/self._time_step_sec, linestyle=types[i])
+                plt.xlim(self._T[0], self._T[-1])
+                plt.ylabel("RoCoF [Hz/s]")
             
             if (not only_freq):
                 plt.subplot(4, 1, 2)
                 plt.plot(self._T, self._w[:, i, 1], linestyle=types[i])
                 plt.xlim(self._T[0], self._T[-1])
-                plt.ylabel(f"Tie-lines")
+                plt.ylabel("Tie-lines")
                 
                 plt.subplot(4, 1, 3)
                 plt.plot(self._T, self._y[:, i], linestyle=types[i])
                 plt.xlim(self._T[0], self._T[-1])
-                plt.ylabel(f"ACE")
+                plt.ylabel("ACE")
                 
                 plt.subplot(4, 1, 4)
                 plt.plot(self._T, self._u[:, i], linestyle=types[i])
                 plt.xlim(self._T[0], self._T[-1])
-                plt.ylabel(f"LFC output")
-        if (not only_freq):
+                plt.ylabel("LFC output")
+        if (only_freq):
+            plt.subplot(2, 1, 1)
+        else:
             plt.subplot(4, 1, 1)
         # Nominal frequency
         plt.axhline(y=self._f0, color='r', linestyle=types[0], linewidth=0.5)
@@ -174,4 +182,4 @@ class Simulation:
     def _print_final_frequencies(self):
         print("Final frequencies for each area:")
         for i in range(self._n):
-            print(f"Area {i}: {round(freq_per_unit_to_Hz(self._x[i][-1, 0], self._f0), 4)} Hz")
+            print(f"Area {i+1}: {round(freq_per_unit_to_Hz(self._x[i][-1, 0], self._f0), 4)} Hz")
