@@ -6,6 +6,8 @@ The simulated system comprises of 10 generator units dividen into three areas in
 
 The simulation was done as a part of the research at KAUST.
 
+The project uses Python version `3.12.7`.
+
 ## Run
 
 To run simulation use `python main.py`.
@@ -23,3 +25,7 @@ To choose from the existing scenarios in `main.py` set variable `attack_scenario
 ### Create scenario
 
 To learn how to create scenarios check documentation of module `laa_scenarios.py`.
+
+## License
+
+This project is licensed under the [GNU General Public License v3.0](LICENSE).
