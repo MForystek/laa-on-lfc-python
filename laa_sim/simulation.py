@@ -1,5 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
+
+from pathlib import Path
 
 from utils import freq_per_unit_to_Hz
 from matrices import MatrixA, MatrixB1, MatrixB2, MatrixC
@@ -14,7 +17,7 @@ class StateInputOutputVectors:
         self._T = T
         self._time_step_sec = time_step_sec
         self._initial_loads_pu = initial_loads_pu
-        self._attack_scenario = attack_scenario
+        self._scenario = attack_scenario
         self._set_vectors()
 
 
@@ -57,10 +60,10 @@ class StateInputOutputVectors:
     def _add_load_change(self, i):            
         altered_load = self._initial_loads_pu.copy()
         for i in range(self._n):
-            for j in range(len(self._attack_scenario[i])):
-                start_index = int(self._attack_scenario[i][j]["start"] / self._time_step_sec)
-                end_index = int(self._attack_scenario[i][j]["end"] / self._time_step_sec)
-                altered_load[i][start_index:end_index] = self._attack_scenario[i][j]["strength"]
+            for j in range(len(self._scenario[i])):
+                start_index = int(self._scenario[i][j]["start"] / self._time_step_sec)
+                end_index = int(self._scenario[i][j]["end"] / self._time_step_sec)
+                altered_load[i][start_index:end_index] = self._scenario[i][j]["strength"]
         self._w[:, :, 0] = altered_load.T
 
 
@@ -87,11 +90,13 @@ class Simulation:
         self._w = w
         self._u = u
         self._y = y
+        self._csv_path = "results/csv"
         
     
-    def run_and_plot_results(self, print_continuous_matrices,
-                                   print_discrete_matrices,
-                                   plot_only_frequency):        
+    def run_and_plot_results(self, print_continuous_matrices, print_discrete_matrices,
+                                   plot_all, scenario):        
+        self._scenario = scenario
+            
         # Getting areas
         self._Areas: list[Area] = []
         for i in range(self._n):
@@ -109,7 +114,8 @@ class Simulation:
                 
         # Running simulation, plotting and printing results
         self._simulate_LFC_power_system() 
-        self._plot_LFC_power_system_results(plot_only_frequency)
+        self._save_data_to_file()
+        self._plot_LFC_power_system_results(plot_all)
         self._print_final_frequencies()
 
 
@@ -124,46 +130,59 @@ class Simulation:
                 self._u[t, i] = self._Areas[i].controller.update(self._y[t-1, i], self._u[t-1, i]) # Delta P_Ci calculation 
 
 
-    def _plot_LFC_power_system_results(self, only_freq=False):
+    def _save_data_to_file(self):
+        x = np.array([self._x[i][:, 0] for i in range(self._n)]).T
+        Path(self._csv_path).mkdir(parents=True, exist_ok=True)
+        np.savetxt(f"{self._csv_path}/{self._scenario["name"]}.csv", x, delimiter=",")
+         
+
+    def _plot_LFC_power_system_results(self, plot_all=False):
+        sns.set_theme(style="whitegrid")
+        sns.set_context("paper", font_scale=1.5)
+        sns.set_palette("deep")
+        sns.set_style("whitegrid", {"axes.grid": True, "grid.color": ".9", "grid.linestyle": "--"})
+        
         legend = []
         types = ['solid', 'dashed', 'dashdot', 'dotted']
         plt.figure()
         for i in range(self._n):
             legend.append(f"Area{i+1}")
-            if (only_freq):
-                plt.subplot(2, 1, 1)
-            else:
-                plt.subplot(4, 1, 1)
-            plt.title("Response for Areas")
-            plt.plot(self._T, freq_per_unit_to_Hz(self._x[i][:, 0], self._f0), linestyle=types[i])
+            if (plot_all):
+                plt.subplot(5, 1, 1)
+            plt.title(self._scenario["description"])
+            sns.lineplot(x=self._T, y=freq_per_unit_to_Hz(self._x[i][:, 0], self._f0), linestyle=types[i])
             plt.xlim(self._T[0], self._T[-1])
             plt.ylabel("Freq [Hz]")
             
-            if (only_freq):
-                plt.subplot(2, 1, 2)
-                plt.plot(self._T[1:], np.diff(freq_per_unit_to_Hz(self._x[i][:, 0], self._f0))/self._time_step_sec, linestyle=types[i])
+            if (plot_all):
+                plt.xticks([])
+                
+                plt.subplot(5, 1, 2)
+                sns.lineplot(x=self._T[1:], y=np.diff(freq_per_unit_to_Hz(self._x[i][:, 0], self._f0))/self._time_step_sec, linestyle=types[i])
                 plt.xlim(self._T[0], self._T[-1])
-                plt.ylabel("RoCoF [Hz/s]")
-            
-            if (not only_freq):
-                plt.subplot(4, 1, 2)
-                plt.plot(self._T, self._w[:, i, 1], linestyle=types[i])
+                plt.ylabel("RoCoF")
+                plt.xticks([])
+                
+                plt.subplot(5, 1, 3)
+                sns.lineplot(x=self._T, y=self._w[:, i, 1], linestyle=types[i])
                 plt.xlim(self._T[0], self._T[-1])
                 plt.ylabel("Tie-lines")
+                plt.xticks([])
                 
-                plt.subplot(4, 1, 3)
-                plt.plot(self._T, self._y[:, i], linestyle=types[i])
+                plt.subplot(5, 1, 4)
+                sns.lineplot(x=self._T, y=self._y[:, i, 0], linestyle=types[i])
                 plt.xlim(self._T[0], self._T[-1])
                 plt.ylabel("ACE")
+                plt.xticks([])
                 
-                plt.subplot(4, 1, 4)
-                plt.plot(self._T, self._u[:, i], linestyle=types[i])
+                plt.subplot(5, 1, 5)
+                sns.lineplot(x=self._T, y=self._u[:, i, 0], linestyle=types[i])
                 plt.xlim(self._T[0], self._T[-1])
                 plt.ylabel("LFC output")
-        if (only_freq):
-            plt.subplot(2, 1, 1)
-        else:
-            plt.subplot(4, 1, 1)
+        plt.xlabel("Time [s]")
+        if (plot_all):
+            plt.subplot(5, 1, 1)
+            
         # Nominal frequency
         plt.axhline(y=self._f0, color='r', linestyle=types[0], linewidth=0.5)
         # Safe operating frequency ranges
@@ -174,12 +193,21 @@ class Simulation:
         plt.axhline(y=57.0, color='r', linestyle=types[3], linewidth=0.5)
         plt.axhline(y=62.5, color='r', linestyle=types[3], linewidth=0.5)
         plt.legend(legend, loc="upper right")
-        if (not only_freq):
-            plt.tight_layout()
+        #plt.tight_layout()
         plt.show()
-
-
+        
+        # get eigenvalues of matrixA from all areas and save them to a file
+        with open(f"{self._csv_path}/eigenvalues.csv", "a+") as f:
+            f.write(f"{self._scenario["name"]},{','.join([str(eig) for eig in np.linalg.eigvals(self._Areas[0].Ad)])}\n")
+        
+        
     def _print_final_frequencies(self):
-        print("Final frequencies for each area:")
-        for i in range(self._n):
-            print(f"Area {i+1}: {round(freq_per_unit_to_Hz(self._x[i][-1, 0], self._f0), 4)} Hz")
+        final_freqs = []
+        final_freqs_str = ""
+        print(f"Final frequencies for each area in {self._scenario["description"]}:")
+        with open(f"{self._csv_path}/final_freqs.csv", "a+") as f:
+            for i in range(self._n):
+                final_freqs.append(freq_per_unit_to_Hz(self._x[i][-1, 0], self._f0))
+                final_freqs_str += f"Area {i+1}: {round(final_freqs[i], 4)} Hz | "
+            print(final_freqs_str[0:-3])
+            f.write(f"{self._scenario["name"]},{','.join([str(freq) for freq in final_freqs])}\n")

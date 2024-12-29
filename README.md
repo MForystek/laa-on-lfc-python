@@ -1,30 +1,48 @@
 # LLA on LFC
 
-The project is a simulation of the Load Frequency Control mechanism of the Power System with the addition of performing Load Altering Attacks (LAAs).
+The project is a simulation of the Load Frequency Control mechanism of the Power System with the addition of Static and Multistep Load Altering Attacks (LAAs).
 
 The simulated system comprises of 10 generator units dividen into three areas in three different ways based on the IEEE 39-bus system.
 
 The simulation was done as a part of the research at KAUST.
 
-The project uses Python version `3.12.7`.
+## Installation
+
+Recommended Python version: `3.12.7`.
+
+Setup a virtual environment and install required packages.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt`
+```
 
 ## Run
 
-To run simulation use `python main.py`.
+To run all scenarios from the file `scenarios.json` use 
+```bash
+python main.py
+```
 
-## Scenarios
+To run a single scenario use
+```bash
+python main.py --scenario_name <scenario_name>
+```
 
-### Choose scenario
+To run scenarios from different file use
+```bash
+python main.py --file_name <path_to_file>
+```
 
-To choose from the existing scenarios in `main.py` set variable `attack_scenario` to the function from `laa_scenarios.py` which returns the choosen scenario.
+To learn about additional arguments use
+```bash
+python main.py --help
+```
 
-#### Example
+### Create custom scenario
 
-`attack_scenario = get_simple_5_percent_increase_in_all_areas(sim_time_sec)`
-
-### Create scenario
-
-To learn how to create scenarios check documentation of module `laa_scenarios.py`.
+To learn how to create custom scenarios look at the examples in `scenarios.json` and documentation in `laa_scenarios.py`.
 
 ## License
 
